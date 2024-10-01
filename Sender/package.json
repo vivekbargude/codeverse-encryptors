@@ -17,6 +17,7 @@
     "crypto": "^1.0.1",
     "express": "^4.21.0",
     "mongoose": "^8.7.0",
-    "node-rsa": "^1.1.1"
+    "node-rsa": "^1.1.1",
+    "node-vault": "^0.10.2"
   }
 }

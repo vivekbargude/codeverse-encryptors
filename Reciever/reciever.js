@@ -1,14 +1,18 @@
 // decryption_server.js
-
 const express = require('express');
 const bodyParser = require('body-parser');
 const NodeRSA = require('node-rsa');
 const crypto = require('crypto');
 const db = require('./db/db.connection');
 const AdminModel = require('./db/admin.model');
+const WebSocket = require('ws');
+const vault = require('node-vault')({ apiVersion :'v1', endpoint: 'http://127.0.0.1:8200' ,token: 'hvs.bDG0sobTSY418sFM6r2I4GRI'});
 
 const app = express();
 app.use(bodyParser.json());
+
+// WebSocket Server Setup
+const wss = new WebSocket.Server({ noServer: true });
 
 // Function to decrypt RSA encrypted data
 function decryptDataRSA(privateKey, encryptedData) {
@@ -32,102 +36,113 @@ function decryptDataDES(key, iv, encryptedData) {
     return decrypted;
 }
 
-app.post('/create-admin',async(req,res)=>{
-
-    try{
-
-        const { username , password } = req.body;
+app.post('/create-admin', async (req, res) => {
+    try {
+        const { username, password } = req.body;
 
         let admin = new AdminModel({
-            username ,
+            username,
             password
         });
 
         admin = await admin.save();
 
         res.status(200).json({
-            success : true,
-            msg : "User created succcessfully.",
-            data : admin
+            success: true,
+            msg: "User created successfully.",
+            data: admin
         });
-
-
-
-    }catch(e){
-        res.send(500).json({
-            "success":false,
-            "message":e.message
-        })
+    } catch (e) {
+        res.status(500).json({
+            "success": false,
+            "message": e.message
+        });
     }
-
 });
 
-app.post('/admin-login',async(req,res)=>{
-
+app.post('/admin-login', async (req, res) => {
     try {
+        const { username, password } = req.body;
 
-        const {username,password} = req.body;
+        const admin = await AdminModel.findOne({ username });
 
-        const admin = await AdminModel.findOne({username});
-
-        if(!admin){
+        if (!admin) {
             return res.status(404).json({
-                "success":false,
-                "message":"Admin not found"
+                "success": false,
+                "message": "Admin not found"
             });
         }
 
-        if(admin.password===password){
+        if (admin.password === password) {
             return res.status(200).json({
-                "success":true,
-                "message":"Admin logged in successfully",
+                "success": true,
+                "message": "Admin logged in successfully",
             });
-        }else
-
-        {
+        } else {
             return res.status(404).json({
-            "success":false,
-            "message":"Invalid password"
-        });
+                "success": false,
+                "message": "Invalid password"
+            });
         }
     } catch (error) {
         res.status(500).json({
-            "success":false,
-            "message":error.message
-        })
+            "success": false,
+            "message": error.message
+        });
     }
-
 });
 
+async function retrieveSecret(secretName) {
+    try {
+        const result = await vault.read(`secret/data/${secretName}`);
+        return result.data.data.value;
+    } catch (error) {
+        console.error('Error retrieving secret:', error);
+    }
+}
 
 // Main decryption logic based on the algorithm used
-app.post('/decrypt', (req, res) => {
+app.post('/decrypt', async(req, res) => {
     const { encryptedData, encryptionDetails, algorithm } = req.body;
 
     let decryptedData;
 
     if (algorithm === 'rsa') {
         // RSA decryption
-        decryptedData = decryptDataRSA(encryptionDetails.privateKey, encryptedData);
-
+        const privateKey = await retrieveSecret('privateKey')
+        console.log(privateKey);
+        
+        decryptedData = decryptDataRSA(privateKey, encryptedData);
     } else if (algorithm === 'aes') {
         // AES decryption
         decryptedData = decryptDataAES(encryptionDetails.key, encryptionDetails.iv, encryptedData);
-
     } else if (algorithm === 'des') {
         // DES decryption
         decryptedData = decryptDataDES(encryptionDetails.key, encryptionDetails.iv, encryptedData);
-
     } else {
         return res.status(400).json({ error: 'Unsupported decryption algorithm.' });
     }
 
     console.log(`Decrypted data using ${algorithm}: ${decryptedData}`);
 
-    // Send decrypted data back to the receiver or next step in the process
+    // Send decrypted data to all connected WebSocket clients
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ decrypted_data: decryptedData }));
+        }
+    });
+
+    // Send decrypted data back as response (optional)
     res.json({ decrypted_data: decryptedData });
 });
 
-app.listen(5002, () => {
+// Upgrade HTTP server to support WebSocket
+const server = app.listen(5002, () => {
     console.log('Decryption Server is running on port 5002...');
+});
+
+server.on('upgrade', (request, socket, head) => {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+    });
 });

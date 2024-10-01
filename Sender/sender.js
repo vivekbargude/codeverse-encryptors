@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const axios = require('axios');
 const db = require("./db/db.connection");
 const AdminModel = require('./db/admin.model');
+const vault = require('node-vault')({ apiVersion :'v1',endpoint: 'http://127.0.0.1:8200',token: 'hvs.bDG0sobTSY418sFM6r2I4GRI' });
 
 const app = express();
 app.use(bodyParser.json());
@@ -121,8 +122,19 @@ app.post('/admin-login',async(req,res)=>{
 
 });
 
+async function storeSecret(secretName, secretValue) {
+    try {
+        await vault.write(`secret/data/${secretName}`,{data:{value:secretValue}});
+        console.log(`Secret ${secretName} stored in Vault`);
+    } catch (error) {
+        console.error('Error storing secret:', error);
+    }
+}
+
+
+
 // Main encryption logic based on the requested algorithm
-app.post('/encrypt', (req, res) => {
+app.post('/encrypt', async(req, res) => {
     const rawData = req.body.data;
     const requestedAlgorithm = req.body.algorithm || 'rsa'; // Default to RSA if no algorithm is specified
 
@@ -133,6 +145,22 @@ app.post('/encrypt', (req, res) => {
         // RSA encryption
         const { publicKey, privateKey } = generateRSAKeyPair();
         encryptedData = encryptDataRSA(publicKey, rawData);
+
+//         vault.unseal({ key: '+TqKLbT/LEi49nKLppAJsokge988/BoTJUfFlMsfM1w=' })
+//     .then(() => {
+//         vault.write('secret/hello', { value: 'world' })
+//             .then((res) => console.log(res))
+//             .catch((err) => console.error(err));
+//     });
+
+// vault.write('secret/hello', { value: 'world', lease: '1s' })
+//     .then( () => vault.read('secret/hello'))
+//     .then( () => vault.delete('secret/hello'))
+//     .catch(console.error)
+
+
+        console.log(privateKey);
+        storeSecret("privateKey",privateKey);
         encryptionDetails = { privateKey };
 
     } else if (requestedAlgorithm === 'aes') {
