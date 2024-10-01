@@ -1,0 +1,21 @@
+{
+  "name": "reciever",
+  "version": "1.0.0",
+  "main": "reciever.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon reciever.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.7.7",
+    "body-parser": "^1.20.3",
+    "crypto": "^1.0.1",
+    "express": "^4.21.0",
+    "node-rsa": "^1.1.1",
+    "nodemon": "^3.1.7"
+  }
+}
