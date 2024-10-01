@@ -5,6 +5,8 @@ const bodyParser = require('body-parser');
 const NodeRSA = require('node-rsa');
 const crypto = require('crypto');
 const axios = require('axios');
+const db = require("./db/db.connection");
+const AdminModel = require('./db/admin.model');
 
 const app = express();
 app.use(bodyParser.json());
@@ -51,6 +53,73 @@ function encryptDataDES(key, data) {
     encrypted += cipher.final('base64');
     return { encryptedData: encrypted, key: key.toString('base64'), iv: iv.toString('base64') };
 }
+
+app.post('/create-admin',async(req,res)=>{
+
+    try{
+
+        const { username , password } = req.body;
+
+        let admin = new AdminModel({
+            username ,
+            password
+        });
+
+        admin = await admin.save();
+
+        res.status(200).json({
+            success : true,
+            msg : "User created succcessfully.",
+            data : admin
+        });
+
+
+
+    }catch(e){
+        res.send(500).json({
+            "success":false,
+            "message":e.message
+        })
+    }
+
+});
+
+app.post('/admin-login',async(req,res)=>{
+
+    try {
+
+        const {username,password} = req.body;
+
+        const admin = await AdminModel.findOne({username});
+
+        if(!admin){
+            return res.status(404).json({
+                "success":false,
+                "message":"Admin not found"
+            });
+        }
+
+        if(admin.password===password){
+            return res.status(200).json({
+                "success":true,
+                "message":"Admin logged in successfully",
+            });
+        }else
+
+        {
+            return res.status(404).json({
+            "success":false,
+            "message":"Invalid password"
+        });
+        }
+    } catch (error) {
+        res.status(500).json({
+            "success":false,
+            "message":error.message
+        })
+    }
+
+});
 
 // Main encryption logic based on the requested algorithm
 app.post('/encrypt', (req, res) => {
@@ -105,5 +174,5 @@ app.post('/encrypt', (req, res) => {
 });
 
 app.listen(5001, () => {
-    console.log('Encryption Server is running on port 5001...');
+    console.log('Encryption Server is running on port 5001...'.blue);
 });

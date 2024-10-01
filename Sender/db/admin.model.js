@@ -1,29 +1,20 @@
 const mongoose = require('mongoose');
-const { pharmacySchema } = require('./pharmacymodel');
 
-const UserSchema = mongoose.Schema({
+const AdminSchema = mongoose.Schema({
 
-    email : {
+    username : {
         required : true,
-        trim : true,
         type : String,
     },
 
     password : {
         type : String,
         required : true,
-        // validate : {
-        //     validator : (value) => {
-                
-        //         return value.length > 6;
-        //     },
-        //     message : 'Please enter a valid password'
-        // },
 
     }
 
 });
 
-const UserModel = mongoose.model('User',UserSchema);
+const AdminModel = mongoose.model('Admin',AdminSchema);
 
-module.exports = UserModel;
+module.exports = AdminModel;

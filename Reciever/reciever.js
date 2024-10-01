@@ -4,6 +4,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const NodeRSA = require('node-rsa');
 const crypto = require('crypto');
+const db = require('./db/db.connection');
+const AdminModel = require('./db/admin.model');
 
 const app = express();
 app.use(bodyParser.json());
@@ -29,6 +31,74 @@ function decryptDataDES(key, iv, encryptedData) {
     decrypted += decipher.final('utf8');
     return decrypted;
 }
+
+app.post('/create-admin',async(req,res)=>{
+
+    try{
+
+        const { username , password } = req.body;
+
+        let admin = new AdminModel({
+            username ,
+            password
+        });
+
+        admin = await admin.save();
+
+        res.status(200).json({
+            success : true,
+            msg : "User created succcessfully.",
+            data : admin
+        });
+
+
+
+    }catch(e){
+        res.send(500).json({
+            "success":false,
+            "message":e.message
+        })
+    }
+
+});
+
+app.post('/admin-login',async(req,res)=>{
+
+    try {
+
+        const {username,password} = req.body;
+
+        const admin = await AdminModel.findOne({username});
+
+        if(!admin){
+            return res.status(404).json({
+                "success":false,
+                "message":"Admin not found"
+            });
+        }
+
+        if(admin.password===password){
+            return res.status(200).json({
+                "success":true,
+                "message":"Admin logged in successfully",
+            });
+        }else
+
+        {
+            return res.status(404).json({
+            "success":false,
+            "message":"Invalid password"
+        });
+        }
+    } catch (error) {
+        res.status(500).json({
+            "success":false,
+            "message":error.message
+        })
+    }
+
+});
+
 
 // Main decryption logic based on the algorithm used
 app.post('/decrypt', (req, res) => {
